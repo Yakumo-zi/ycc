@@ -45,6 +45,18 @@ static void error_tok(Token *tok, char *fmt, ...) {
   error_at(tok->loc, fmt, ap);
 }
 
+static bool startswith(char *p, char *q) {
+  return strncmp(p, q, strlen(q)) == 0;
+}
+
+static int read_punct(char *p) {
+  if (startswith(p, "==") || startswith(p, ">=") || startswith(p, "<=") ||
+      startswith(p, "!=")) {
+    return 2;
+  }
+  return ispunct(*p) ? 1 : 0;
+}
+
 static bool equal(Token *tok, char *op) {
   return memcmp(tok->loc, op, tok->len) == 0 && op[tok->len] == '\0';
 }
@@ -86,11 +98,13 @@ static Token *tokenize() {
       continue;
     }
 
-    if (ispunct(*p)) {
-      cur = cur->next = new_token(TK_PUNCT, p, p + 1);
-      p++;
+    int punct_len = read_punct(p);
+    if (punct_len) {
+      cur = cur->next = new_token(TK_PUNCT, p, p + punct_len);
+      p += cur->len;
       continue;
     }
+
     error_at(p, "invalid token");
   }
   cur = cur->next = new_token(TK_EOF, p, p);
@@ -104,6 +118,10 @@ typedef enum {
   ND_DIV,
   ND_NUM,
   ND_NEG,
+  ND_EQ,
+  ND_NE,
+  ND_LT,
+  ND_LE
 } NodeKind;
 
 typedef struct Node Node;
@@ -138,18 +156,69 @@ static Node *new_unary(NodeKind kind, Node *expr) {
   return node;
 }
 
-// expr=mul("+" mul | "-" mul)
+// expr=equality
+// equality=relational ("==" relational | "!=" relational)
+// relational=add("<" add | "<=" add | ">" add | ">=" add)
+// add=mul("+" mul | "-" mul)
 // mul=unary("*" unary | "/" unary)
 // unary=("+"|"-") unary | primary
 // primary ="(" expr ")" | num
 
 static Node *expr(Token **rest, Token *tok);
+static Node *equality(Token **rest, Token *tok);
+static Node *relational(Token **rest, Token *tok);
+static Node *add(Token **rest, Token *tok);
 static Node *mul(Token **rest, Token *tok);
 static Node *unary(Token **rest, Token *tok);
 static Node *primary(Token **rest, Token *tok);
 
-// expr=mul("+" mul | "-" mul)
-static Node *expr(Token **rest, Token *tok) {
+// expr=equality
+static Node *expr(Token **rest, Token *tok) { return equality(rest, tok); }
+
+// equality = relational("==" realational | "!=" relational)
+static Node *equality(Token **rest, Token *tok) {
+  Node *node = relational(&tok, tok);
+  while (true) {
+    if (equal(tok, "==")) {
+      node = new_binary(ND_EQ, node, relational(&tok, tok->next));
+      continue;
+    }
+    if (equal(tok, "!=")) {
+      node = new_binary(ND_NE, node, relational(&tok, tok->next));
+      continue;
+    }
+    *rest = tok;
+    return node;
+  }
+}
+
+// relational=add("<" add | "<=" add | ">" add | ">=" add)
+static Node *relational(Token **rest, Token *tok) {
+  Node *node = add(&tok, tok);
+  while (true) {
+    if (equal(tok, "<")) {
+      node = new_binary(ND_LT, node, add(&tok, tok->next));
+      continue;
+    }
+    if (equal(tok, "<=")) {
+      node = new_binary(ND_LE, node, add(&tok, tok->next));
+      continue;
+    }
+    if (equal(tok, ">")) {
+      node = new_binary(ND_LT, add(&tok, tok->next), node);
+      continue;
+    }
+    if (equal(tok, ">=")) {
+      node = new_binary(ND_LE, add(&tok, tok->next), node);
+      continue;
+    }
+    *rest = tok;
+    return node;
+  }
+}
+
+// add=mul("+" mul|"-"mul)
+static Node *add(Token **rest, Token *tok) {
   Node *node = mul(&tok, tok);
   while (true) {
     if (equal(tok, "+")) {
@@ -164,6 +233,7 @@ static Node *expr(Token **rest, Token *tok) {
     return node;
   }
 }
+
 // mul=primary("*" primary | "/" primary)
 static Node *mul(Token **rest, Token *tok) {
   Node *node = unary(&tok, tok);
@@ -228,6 +298,7 @@ static void gen_expr(Node *node) {
     printf("    neg %%rax\n");
     return;
   }
+
   gen_expr(node->rhs);
   push();
   gen_expr(node->lhs);
@@ -247,8 +318,21 @@ static void gen_expr(Node *node) {
     printf("    cqo\n");
     printf("    idiv %%rdi\n");
     return;
-  case ND_NUM:
-
+  case ND_EQ:
+  case ND_NE:
+  case ND_LT:
+  case ND_LE:
+    printf("    cmp %%rdi,%%rax\n");
+    if (node->kind == ND_EQ) {
+      printf("    sete %%al\n");
+    } else if (node->kind == ND_NE) {
+      printf("    setne %%al\n");
+    } else if (node->kind == ND_LT) {
+      printf("    setl %%al\n");
+    } else if (node->kind == ND_LE) {
+      printf("    setle %%al\n");
+    }
+    printf("    movzb %%al,%%rax\n");
     return;
   }
   error("invalid expression");
