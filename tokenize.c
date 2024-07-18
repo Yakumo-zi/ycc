@@ -95,6 +95,11 @@ Token *tokenize(char *p) {
       continue;
     }
 
+    if ('a' <= *p && *p <= 'z') {
+      cur = cur->next = new_token(TK_IDENT, p, p + 1);
+      p++;
+      continue;
+    }
     error_at(p, "invalid token");
   }
   cur = cur->next = new_token(TK_EOF, p, p);

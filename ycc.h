@@ -1,5 +1,5 @@
 #include <stdbool.h>
-typedef enum { TK_PUNCT, TK_NUM, TK_EOF } TokenKind;
+typedef enum { TK_PUNCT, TK_NUM, TK_EOF, TK_IDENT } TokenKind;
 
 typedef struct Token Token;
 struct Token {
@@ -28,6 +28,8 @@ typedef enum {
   ND_LT,
   ND_LE,
   ND_EXPR_STMT,
+  ND_ASSIGN,
+  ND_VAR,
 } NodeKind;
 
 // AST Node
@@ -38,6 +40,7 @@ struct Node {
   Node *lhs;
   Node *rhs;
   int val;
+  char name;
 };
 
 Node *parse(Token *tok);
