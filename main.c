@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <ctype.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -15,6 +16,7 @@ struct Token {
   int len;
 };
 
+static char *current_input;
 static void error(char *fmt, ...) {
   va_list ap;
   va_start(ap, fmt);
@@ -22,19 +24,39 @@ static void error(char *fmt, ...) {
   fprintf(stderr, "\n");
   exit(1);
 }
+static void verror_at(char *loc, char *fmt, va_list ap) {
+  int pos = loc - current_input;
+  fprintf(stderr, "%s\n", current_input);
+  fprintf(stderr, "%*s^ ", pos, "");
+  vfprintf(stderr, fmt, ap);
+  fprintf(stderr, "\n");
+  exit(-1);
+}
+static void error_at(char *loc, char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  verror_at(loc, fmt, ap);
+}
+
+static void error_tok(Token *tok, char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  error_at(tok->loc, fmt, ap);
+}
+
 static bool equal(Token *tok, char *op) {
   return memcmp(tok->loc, op, tok->len) == 0 && op[tok->len] == '\0';
 }
 
 static Token *skip(Token *tok, char *s) {
   if (!equal(tok, s))
-    error("expected '%s'", s);
+    error_tok(tok, "expected");
   return tok->next;
 }
 
 static int get_number(Token *tok) {
   if (tok->kind != TK_NUM)
-    error("expected a number kind:'%d'", tok->kind);
+    error_tok(tok, "expected a number");
   return tok->val;
 }
 
@@ -46,7 +68,8 @@ static Token *new_token(TokenKind kind, char *start, char *end) {
   return tok;
 }
 
-static Token *tokenize(char *p) {
+static Token *tokenize() {
+  char *p = current_input;
   Token head = {};
   Token *cur = &head;
   while (*p) {
@@ -67,7 +90,7 @@ static Token *tokenize(char *p) {
       p++;
       continue;
     }
-    error("invalid token '%c'", *p);
+    error_at(p, "invalid token");
   }
   cur = cur->next = new_token(TK_EOF, p, p);
   return head.next;
@@ -79,11 +102,10 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  char *p = argv[1];
-  Token *tok = tokenize(argv[1]);
+  current_input = argv[1];
+  Token *tok = tokenize();
   printf("    .global main\n");
   printf("main:\n");
-  printf("     mov $%ld,%%rax\n", strtol(p, &p, 10));
   // the first token musb be a number
   printf("    mov $%d,%%rax\n", get_number(tok));
   tok = tok->next;
