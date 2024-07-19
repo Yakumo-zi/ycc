@@ -48,6 +48,8 @@ typedef enum {
   ND_VAR,
   ND_BLOCK,
   ND_RETURN,
+  ND_IF,
+  ND_FOR,
 } NodeKind;
 
 // AST Node
@@ -58,6 +60,16 @@ struct Node {
   Node *rhs;
   int val;
   Obj *var;
+
+  // if statement
+  Node *cond;
+  Node *then;
+  Node *els;
+
+  // for statement
+  Node *init;
+  Node *inc;
+
   Node *body;
 };
 

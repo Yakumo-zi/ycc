@@ -1,4 +1,5 @@
 #include "ycc.h"
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -51,9 +52,13 @@ static Node *new_var(Obj *var) {
   return node;
 }
 
-// stmt="return" expr ";" | expr-stmt | "{" compound_stmt
+// stmt="return" expr ";"
+//      | expr-stmt
+//      | {" compound_stmt
+//      | "if" "(" expr ")" stmt ("else" stmt)
+//      | "for" "("expr-stmt expr-stmt expr?")" stmt
 // compound_stmt = stmt* "}"
-// expr-stmt=expr ";"
+// expr-stmt=expr? ";"
 // expr=assign
 // assign= equality("=" assign)
 // equality=relational ("==" relational | "!=" relational)
@@ -74,7 +79,11 @@ static Node *mul(Token **rest, Token *tok);
 static Node *unary(Token **rest, Token *tok);
 static Node *primary(Token **rest, Token *tok);
 
-// stmt="return" expr ";" | expr-stmt | "{" compound_stmt
+// stmt="return" expr ";"
+//      | expr-stmt
+//      | {" compound_stmt
+//      | "if" "(" expr ")" stmt ("else" stmt)
+//      | "for" "("expr-stmt expr-stmt expr?")" stmt
 static Node *stmt(Token **rest, Token *tok) {
   if (equal(tok, "return")) {
     Node *node = new_unary(ND_RETURN, expr(&tok, tok->next));
@@ -83,6 +92,35 @@ static Node *stmt(Token **rest, Token *tok) {
   }
   if (equal(tok, "{")) {
     return compound_stmt(rest, tok->next);
+  }
+  if (equal(tok, "if")) {
+    Node *node = new_node(ND_IF);
+    tok = skip(tok->next, "(");
+    node->cond = expr(&tok, tok);
+    tok = skip(tok, ")");
+    node->then = stmt(&tok, tok);
+    if (equal(tok, "else")) {
+      node->els = stmt(&tok, tok->next);
+    }
+    *rest = tok;
+    return node;
+  }
+  if (equal(tok, "for")) {
+    Node *node = new_node(ND_FOR);
+    tok = skip(tok->next, "(");
+    node->init = expr_stmt(&tok, tok);
+
+    if (!equal(tok, ";"))
+      node->cond = expr(&tok, tok);
+    tok = skip(tok, ";");
+
+    if (!equal(tok, ")"))
+      node->inc = expr(&tok, tok);
+    tok = skip(tok, ")");
+
+    node->then = stmt(&tok, tok);
+    *rest = tok;
+    return node;
   }
   return expr_stmt(rest, tok);
 }
@@ -101,9 +139,12 @@ static Node *compound_stmt(Token **rest, Token *tok) {
   return node;
 }
 
-// expr-stmt=expr ";"
+// expr-stmt=expr? ";"
 static Node *expr_stmt(Token **rest, Token *tok) {
-
+  if (equal(tok, ";")) {
+    *rest = tok->next;
+    return new_node(ND_BLOCK);
+  }
   Node *node = new_unary(ND_EXPR_STMT, expr(&tok, tok));
   *rest = skip(tok, ";");
   return node;

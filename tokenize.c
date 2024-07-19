@@ -79,9 +79,18 @@ static bool is_indent2(char c) {
   return is_indent1(c) || ('0' <= c && c <= '9');
 }
 
+static bool is_keyword(Token *tok) {
+  static char *kw[] = {"return", "if", "else", "for"};
+  for (int i = 0; i < sizeof(kw) / sizeof(*kw); i++) {
+    if (equal(tok, kw[i]))
+      return true;
+  }
+  return false;
+}
+
 static void convert_keywords(Token *tok) {
   for (Token *t = tok; t->kind != TK_EOF; t = t->next) {
-    if (equal(t, "return")) {
+    if (is_keyword(tok)) {
       t->kind = TK_KEYWORD;
     }
   }

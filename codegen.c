@@ -3,6 +3,11 @@
 #include <stdio.h>
 
 static int depth = 0;
+static int count() {
+  static int i = 1;
+  return i++;
+}
+
 static void push() {
   printf("    push %%rax\n");
   depth++;
@@ -93,6 +98,7 @@ static void assign_lvar_offsets(Function *prog) {
 }
 
 void gen_stmt(Node *node) {
+  int c = count();
   switch (node->kind) {
   case ND_RETURN:
     gen_expr(node->lhs);
@@ -105,6 +111,32 @@ void gen_stmt(Node *node) {
     for (Node *n = node->body; n; n = n->next) {
       gen_stmt(n);
     }
+    return;
+  case ND_IF:
+    gen_expr(node->cond);
+    printf("    cmp $0,%%rax\n");
+    printf("    je .L.else.%d\n", c);
+    gen_stmt(node->then);
+    printf("    jmp .L.end.%d\n", c);
+    printf(".L.else.%d:\n", c);
+    if (node->els) {
+      gen_stmt(node->els);
+    }
+    printf(".L.end.%d:\n", c);
+    return;
+  case ND_FOR:
+    gen_stmt(node->init);
+    printf(".L.begin.%d:\n", c);
+    if (node->cond) {
+      gen_expr(node->cond);
+      printf("    cmp $0,%%rax\n");
+      printf("    je .L.end.%d\n", c);
+    }
+    gen_stmt(node->then);
+    if (node->inc)
+      gen_expr(node->inc);
+    printf("    jmp .L.begin.%d\n", c);
+    printf(".L.end.%d:\n", c);
     return;
   }
   error("invalid statement");
