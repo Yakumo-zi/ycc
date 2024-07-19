@@ -1,5 +1,8 @@
 #include "ycc.h"
 #include <stdlib.h>
+#include <string.h>
+
+static Obj *locals;
 
 static Node *new_node(NodeKind kind) {
   Node *node = calloc(1, sizeof(Node));
@@ -25,9 +28,26 @@ static Node *new_unary(NodeKind kind, Node *expr) {
   return node;
 }
 
-static Node *new_var(char name) {
+static Obj *find_var(Token *tok) {
+
+  for (Obj *var = locals; var; var = var->next) {
+    if (strlen(var->name) == tok->len &&
+        !strncmp(tok->loc, var->name, tok->len))
+      return var;
+  }
+  return NULL;
+}
+
+static Obj *new_lvar(char *name) {
+  Obj *var = calloc(1, sizeof(Obj));
+  var->name = name;
+  var->next = locals;
+  locals = var;
+  return var;
+}
+static Node *new_var(Obj *var) {
   Node *node = new_node(ND_VAR);
-  node->name = name;
+  node->var = var;
   return node;
 }
 
@@ -175,21 +195,27 @@ static Node *primary(Token **rest, Token *tok) {
     return node;
   }
   if (tok->kind == TK_IDENT) {
-    Node *node = new_var(*tok->loc);
+    Obj *var = find_var(tok);
+    if (!var) {
+      var = new_lvar(strndup(tok->loc, tok->len));
+    }
     *rest = tok->next;
-    return node;
+    return new_var(var);
   }
   error_tok(tok, "expected an expression");
   return NULL;
 }
 
-Node *parse(Token *token) {
+Function *parse(Token *token) {
   Node head = {};
 
   Node *cur = &head;
   while (token->kind != TK_EOF) {
     cur = cur->next = stmt(&token, token);
   }
+  Function *prog = calloc(1, sizeof(Function));
 
-  return head.next;
+  prog->body = head.next;
+  prog->locals = locals;
+  return prog;
 }

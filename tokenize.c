@@ -71,6 +71,14 @@ static Token *new_token(TokenKind kind, char *start, char *end) {
   return tok;
 }
 
+static bool is_indent1(char c) {
+  return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || c == '_';
+}
+
+static bool is_indent2(char c) {
+  return is_indent1(c) || ('0' <= c && c <= '9');
+}
+
 Token *tokenize(char *p) {
   current_input = p;
   Token head = {};
@@ -94,10 +102,12 @@ Token *tokenize(char *p) {
       p += cur->len;
       continue;
     }
-
-    if ('a' <= *p && *p <= 'z') {
-      cur = cur->next = new_token(TK_IDENT, p, p + 1);
-      p++;
+    if (is_indent1(*p)) {
+      char *start = p;
+      do {
+        p++;
+      } while (is_indent2(*p));
+      cur = cur->next = new_token(TK_IDENT, start, p);
       continue;
     }
     error_at(p, "invalid token");

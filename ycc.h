@@ -1,7 +1,23 @@
+#define _POSIX_C_SOURCE 200809L
 #include <stdbool.h>
 typedef enum { TK_PUNCT, TK_NUM, TK_EOF, TK_IDENT } TokenKind;
-
 typedef struct Token Token;
+typedef struct Node Node;
+typedef struct Obj Obj;
+typedef struct Function Function;
+
+struct Obj {
+  Obj *next;
+  char *name;
+  int offset; // Offset from RBP
+};
+
+struct Function {
+  Node *body;
+  Obj *locals;
+  int stack_size;
+};
+
 struct Token {
   TokenKind kind;
   Token *next;
@@ -33,16 +49,15 @@ typedef enum {
 } NodeKind;
 
 // AST Node
-typedef struct Node Node;
 struct Node {
   NodeKind kind;
   Node *next;
   Node *lhs;
   Node *rhs;
   int val;
-  char name;
+  Obj *var;
 };
 
-Node *parse(Token *tok);
+Function *parse(Token *tok);
 
-void codegen(Node *node);
+void codegen(Function *node);
