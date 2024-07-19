@@ -46,6 +46,7 @@ typedef enum {
   ND_EXPR_STMT,
   ND_ASSIGN,
   ND_VAR,
+  ND_BLOCK,
   ND_RETURN,
 } NodeKind;
 
@@ -57,6 +58,7 @@ struct Node {
   Node *rhs;
   int val;
   Obj *var;
+  Node *body;
 };
 
 Function *parse(Token *tok);
