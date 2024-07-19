@@ -1,4 +1,5 @@
 #include "ycc.h"
+#include <string.h>
 
 static Obj *locals;
 
@@ -37,10 +38,11 @@ static Obj *find_var(Token *tok) {
   return NULL;
 }
 
-static Obj *new_lvar(char *name) {
+static Obj *new_lvar(char *name, Type *ty) {
   Obj *var = calloc(1, sizeof(Obj));
   var->name = name;
   var->next = locals;
+  var->ty = ty;
   locals = var;
   return var;
 }
@@ -71,6 +73,7 @@ static Node *new_add(Node *lhs, Node *rhs, Token *tok) {
   rhs = new_binary(ND_MUL, rhs, new_num(8, tok), tok);
   return new_binary(ND_ADD, lhs, rhs, tok);
 }
+
 static Node *new_sub(Node *lhs, Node *rhs, Token *tok) {
   add_type(lhs);
   add_type(rhs);
@@ -98,13 +101,42 @@ static Node *new_sub(Node *lhs, Node *rhs, Token *tok) {
   error_tok(tok, "invalid operands");
 }
 
+static char *get_ident(Token *tok) {
+  if (tok->kind != TK_IDENT) {
+    error_tok(tok, "expected an identifier");
+  }
+  return strndup(tok->loc, tok->len);
+}
+
+// declspec = "int"
+static Type *declspec(Token **rest, Token *tok) {
+  *rest = skip(tok, "int");
+  return ty_int;
+}
+
+// declarator = "*"* ident
+static Type *declarator(Token **rest, Token *tok, Type *ty) {
+  while (consume(&tok, tok, "*")) {
+    ty = pointer_to(ty);
+  }
+  if (tok->kind != TK_IDENT) {
+    error_tok(tok, "expected an identifer");
+  }
+  ty->name = tok;
+  *rest = tok->next;
+  return ty;
+}
+
 // stmt="return" expr ";"
 //      | expr-stmt
 //      | {" compound_stmt
 //      | "if" "(" expr ")" stmt ("else" stmt)
 //      | "for" "("expr-stmt expr-stmt expr?")" stmt
 //      | "while" "(" expr ")" stmt
-// compound_stmt = stmt* "}"
+// declspec = "int"
+// declarator = "*"* ident
+// declaration=declspec(declarator("=" expr)? ("," declarator("="expr)?)*)?";"
+// compound_stmt = (stmt | declaration )*"}"
 // expr-stmt=expr? ";"
 // expr=assign
 // assign= equality("=" assign)
@@ -115,6 +147,7 @@ static Node *new_sub(Node *lhs, Node *rhs, Token *tok) {
 // unary=("+"|"-" |"&" | "*") unary | primary
 // primary ="(" expr ")" | num
 
+static Node *declaration(Token **rest, Token *tok);
 static Node *compound_stmt(Token **rest, Token *tok);
 static Node *expr_stmt(Token **rest, Token *tok);
 static Node *expr(Token **rest, Token *tok);
@@ -125,6 +158,33 @@ static Node *add(Token **rest, Token *tok);
 static Node *mul(Token **rest, Token *tok);
 static Node *unary(Token **rest, Token *tok);
 static Node *primary(Token **rest, Token *tok);
+
+// declaration=declspec(declarator("=" expr)? ("," declarator("="expr)?)*)?";"
+static Node *declaration(Token **rest, Token *tok) {
+  Type *basety = declspec(&tok, tok);
+  Node head = {};
+  Node *cur = &head;
+  int i = 0;
+  while (!equal(tok, ";")) {
+    if (i++ > 0) {
+      tok = skip(tok, ",");
+    }
+    Type *ty = declarator(&tok, tok, basety);
+    Obj *var = new_lvar(get_ident(ty->name), ty);
+    if (!equal(tok, "=")) {
+      continue;
+    }
+
+    Node *lhs = new_var(var, ty->name);
+    Node *rhs = assign(&tok, tok->next);
+    Node *node = new_binary(ND_ASSIGN, lhs, rhs, tok);
+    cur = cur->next = new_unary(ND_EXPR_STMT, node, tok);
+  }
+  Node *node = new_node(ND_BLOCK, tok);
+  node->body = head.next;
+  *rest = tok->next;
+  return node;
+}
 
 // stmt="return" expr ";"
 //      | expr-stmt
@@ -186,7 +246,12 @@ static Node *compound_stmt(Token **rest, Token *tok) {
   Node head = {};
   Node *cur = &head;
   while (!equal(tok, "}")) {
-    cur = cur->next = stmt(&tok, tok);
+    if (equal(tok, "int")) {
+      cur = cur->next = declaration(&tok, tok);
+    } else {
+      cur = cur->next = stmt(&tok, tok);
+    }
+    add_type(cur);
   }
   Node *node = new_node(ND_BLOCK, tok);
   node->body = head.next;
@@ -331,7 +396,7 @@ static Node *primary(Token **rest, Token *tok) {
   if (tok->kind == TK_IDENT) {
     Obj *var = find_var(tok);
     if (!var) {
-      var = new_lvar(strndup(tok->loc, tok->len));
+      error_tok(tok, "undefined variable");
     }
     *rest = tok->next;
     return new_var(var, tok);
