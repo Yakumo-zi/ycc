@@ -1,10 +1,16 @@
 #define _POSIX_C_SOURCE 200809L
+#include <ctype.h>
+#include <stdarg.h>
 #include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 typedef enum { TK_PUNCT, TK_NUM, TK_EOF, TK_IDENT, TK_KEYWORD } TokenKind;
 typedef struct Token Token;
 typedef struct Node Node;
 typedef struct Obj Obj;
 typedef struct Function Function;
+typedef struct Type Type;
 
 struct Obj {
   Obj *next;
@@ -30,7 +36,6 @@ void error_at(char *loc, char *fmt, ...);
 void error_tok(Token *tok, char *fmt, ...);
 bool equal(Token *tok, char *op);
 Token *skip(Token *tok, char *op);
-Token *tokenize(char *input);
 
 typedef enum {
   ND_ADD,
@@ -62,6 +67,7 @@ struct Node {
   Node *rhs;
   int val;
   Obj *var;
+  Type *ty;
 
   // if statement
   Node *cond;
@@ -77,6 +83,20 @@ struct Node {
   Node *body;
 };
 
-Function *parse(Token *tok);
+typedef enum {
+  TY_INT,
+  TY_PTR,
+} TypeKind;
 
+struct Type {
+  TypeKind kind;
+  Type *base;
+};
+
+extern Type *ty_int;
+bool is_integer(Type *type);
+void add_type(Node *node);
+
+Token *tokenize(char *input);
+Function *parse(Token *tok);
 void codegen(Function *node);

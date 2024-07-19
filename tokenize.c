@@ -1,9 +1,3 @@
-#include <ctype.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
 #include "ycc.h"
 
 static char *current_input;
