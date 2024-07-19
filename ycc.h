@@ -1,6 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 #include <stdbool.h>
-typedef enum { TK_PUNCT, TK_NUM, TK_EOF, TK_IDENT } TokenKind;
+typedef enum { TK_PUNCT, TK_NUM, TK_EOF, TK_IDENT, TK_KEYWORD } TokenKind;
 typedef struct Token Token;
 typedef struct Node Node;
 typedef struct Obj Obj;
@@ -46,6 +46,7 @@ typedef enum {
   ND_EXPR_STMT,
   ND_ASSIGN,
   ND_VAR,
+  ND_RETURN,
 } NodeKind;
 
 // AST Node

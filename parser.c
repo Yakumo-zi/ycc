@@ -51,7 +51,7 @@ static Node *new_var(Obj *var) {
   return node;
 }
 
-// stmt=expr-stmt
+// stmt="return" expr ";" | expr-stmt
 // expr-stmt=expr ";"
 // expr=assign
 // assign= equality("=" assign)
@@ -73,7 +73,14 @@ static Node *unary(Token **rest, Token *tok);
 static Node *primary(Token **rest, Token *tok);
 
 // stmt=expr-stmt
-static Node *stmt(Token **rest, Token *tok) { return expr_stmt(rest, tok); }
+static Node *stmt(Token **rest, Token *tok) {
+  if (equal(tok, "return")) {
+    Node *node = new_unary(ND_RETURN, expr(&tok, tok->next));
+    *rest = skip(tok, ";");
+    return node;
+  }
+  return expr_stmt(rest, tok);
+}
 // expr-stmt=expr ";"
 static Node *expr_stmt(Token **rest, Token *tok) {
 

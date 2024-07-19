@@ -79,6 +79,14 @@ static bool is_indent2(char c) {
   return is_indent1(c) || ('0' <= c && c <= '9');
 }
 
+static void convert_keywords(Token *tok) {
+  for (Token *t = tok; t->kind != TK_EOF; t = t->next) {
+    if (equal(t, "return")) {
+      t->kind = TK_KEYWORD;
+    }
+  }
+}
+
 Token *tokenize(char *p) {
   current_input = p;
   Token head = {};
@@ -102,6 +110,8 @@ Token *tokenize(char *p) {
       p += cur->len;
       continue;
     }
+
+    // Identifier or Keyword
     if (is_indent1(*p)) {
       char *start = p;
       do {
@@ -113,5 +123,6 @@ Token *tokenize(char *p) {
     error_at(p, "invalid token");
   }
   cur = cur->next = new_token(TK_EOF, p, p);
+  convert_keywords(head.next);
   return head.next;
 }
