@@ -57,6 +57,7 @@ static Node *new_var(Obj *var) {
 //      | {" compound_stmt
 //      | "if" "(" expr ")" stmt ("else" stmt)
 //      | "for" "("expr-stmt expr-stmt expr?")" stmt
+//      | "while" "(" expr ")" stmt
 // compound_stmt = stmt* "}"
 // expr-stmt=expr? ";"
 // expr=assign
@@ -118,6 +119,15 @@ static Node *stmt(Token **rest, Token *tok) {
       node->inc = expr(&tok, tok);
     tok = skip(tok, ")");
 
+    node->then = stmt(&tok, tok);
+    *rest = tok;
+    return node;
+  }
+  if (equal(tok, "while")) {
+    Node *node = new_node(ND_FOR);
+    tok = skip(tok->next, "(");
+    node->cond = expr(&tok, tok);
+    tok = skip(tok, ")");
     node->then = stmt(&tok, tok);
     *rest = tok;
     return node;

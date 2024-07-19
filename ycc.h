@@ -49,7 +49,7 @@ typedef enum {
   ND_BLOCK,
   ND_RETURN,
   ND_IF,
-  ND_FOR,
+  ND_FOR, // for or while
 } NodeKind;
 
 // AST Node

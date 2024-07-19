@@ -98,7 +98,7 @@ static void assign_lvar_offsets(Function *prog) {
 }
 
 void gen_stmt(Node *node) {
-  int c = count();
+  int c = 0;
   switch (node->kind) {
   case ND_RETURN:
     gen_expr(node->lhs);
@@ -113,6 +113,7 @@ void gen_stmt(Node *node) {
     }
     return;
   case ND_IF:
+    c = count();
     gen_expr(node->cond);
     printf("    cmp $0,%%rax\n");
     printf("    je .L.else.%d\n", c);
@@ -125,7 +126,9 @@ void gen_stmt(Node *node) {
     printf(".L.end.%d:\n", c);
     return;
   case ND_FOR:
-    gen_stmt(node->init);
+    c = count();
+    if (node->init)
+      gen_stmt(node->init);
     printf(".L.begin.%d:\n", c);
     if (node->cond) {
       gen_expr(node->cond);
