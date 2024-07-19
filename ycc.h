@@ -50,6 +50,8 @@ typedef enum {
   ND_RETURN,
   ND_IF,
   ND_FOR, // for or while
+  ND_ADDR,
+  ND_DEREF,
 } NodeKind;
 
 // AST Node
@@ -69,6 +71,8 @@ struct Node {
   // for statement
   Node *init;
   Node *inc;
+
+  Token *tok;
 
   Node *body;
 };

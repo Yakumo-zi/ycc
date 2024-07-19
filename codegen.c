@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 static int depth = 0;
+static void gen_expr(Node *node);
 static int count() {
   static int i = 1;
   return i++;
@@ -22,11 +23,15 @@ static int align_to(int n, int align) {
   return (n + align - 1) / align * align;
 }
 static void gen_addr(Node *node) {
-  if (node->kind == ND_VAR) {
+  switch (node->kind) {
+  case ND_VAR:
     printf("    lea %d(%%rbp),%%rax\n", node->var->offset);
     return;
+  case ND_DEREF:
+    gen_expr(node->lhs);
+    return;
   }
-  error("not an lvalue");
+  error_tok(node->tok, "not an lvalue");
 }
 static void gen_expr(Node *node) {
   switch (node->kind) {
@@ -47,6 +52,13 @@ static void gen_expr(Node *node) {
     gen_expr(node->rhs);
     pop("%rdi");
     printf("    mov %%rax,(%%rdi)\n");
+    return;
+  case ND_DEREF:
+    gen_expr(node->lhs);
+    printf("    mov (%%rax),%%rax\n");
+    return;
+  case ND_ADDR:
+    gen_addr(node->lhs);
     return;
   }
 
@@ -86,7 +98,7 @@ static void gen_expr(Node *node) {
     printf("    movzb %%al,%%rax\n");
     return;
   }
-  error("invalid expression");
+  error_tok(node->tok, "invalid expression");
 }
 static void assign_lvar_offsets(Function *prog) {
   int offset = 0;
@@ -142,7 +154,7 @@ void gen_stmt(Node *node) {
     printf(".L.end.%d:\n", c);
     return;
   }
-  error("invalid statement");
+  error_tok(node->tok, "invalid statement");
 }
 void codegen(Function *prog) {
   assign_lvar_offsets(prog);
