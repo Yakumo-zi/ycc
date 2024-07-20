@@ -53,6 +53,7 @@ struct Function {
   Node *body;
   Obj *locals;
   int stack_size;
+  Obj *params;
   Function *next;
   char *name;
 };
@@ -110,12 +111,15 @@ struct Type {
   Token *name;
 
   Type *return_ty;
+  Type *params;
+  Type *next;
 };
 
 extern Type *ty_int;
 bool is_integer(Type *type);
 Type *pointer_to(Type *base);
 Type *func_type(Type *return_ty);
+Type *copy_type(Type *type);
 void add_type(Node *node);
 
 Token *tokenize(char *input);
