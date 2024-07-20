@@ -145,7 +145,8 @@ static Type *declarator(Token **rest, Token *tok, Type *ty) {
 // add=mul("+" mul | "-" mul)
 // mul=unary("*" unary | "/" unary)
 // unary=("+"|"-" |"&" | "*") unary | primary
-// primary ="(" expr ")" | num
+// primary ="(" expr ")" | num | ident args?
+// args="("")"
 
 static Node *declaration(Token **rest, Token *tok);
 static Node *compound_stmt(Token **rest, Token *tok);
@@ -381,7 +382,8 @@ static Node *unary(Token **rest, Token *tok) {
   }
   return primary(rest, tok);
 }
-// primary ="(" expr ")" | num | ident
+// primary ="(" expr ")" | num | ident args?
+// args="("")"
 static Node *primary(Token **rest, Token *tok) {
   if (equal(tok, "(")) {
     Node *node = expr(&tok, tok->next);
@@ -394,6 +396,12 @@ static Node *primary(Token **rest, Token *tok) {
     return node;
   }
   if (tok->kind == TK_IDENT) {
+    if (equal(tok->next, "(")) {
+      Node *node = new_node(ND_FUNCALL, tok);
+      node->funcname = strndup(tok->loc, tok->len);
+      *rest = skip(tok->next->next, ")");
+      return node;
+    }
     Obj *var = find_var(tok);
     if (!var) {
       error_tok(tok, "undefined variable");
