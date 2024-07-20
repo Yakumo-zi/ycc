@@ -108,25 +108,6 @@ static char *get_ident(Token *tok) {
   return strndup(tok->loc, tok->len);
 }
 
-// declspec = "int"
-static Type *declspec(Token **rest, Token *tok) {
-  *rest = skip(tok, "int");
-  return ty_int;
-}
-
-// declarator = "*"* ident
-static Type *declarator(Token **rest, Token *tok, Type *ty) {
-  while (consume(&tok, tok, "*")) {
-    ty = pointer_to(ty);
-  }
-  if (tok->kind != TK_IDENT) {
-    error_tok(tok, "expected an identifer");
-  }
-  ty->name = tok;
-  *rest = tok->next;
-  return ty;
-}
-
 // stmt="return" expr ";"
 //      | expr-stmt
 //      | {" compound_stmt
@@ -134,7 +115,8 @@ static Type *declarator(Token **rest, Token *tok, Type *ty) {
 //      | "for" "("expr-stmt expr-stmt expr?")" stmt
 //      | "while" "(" expr ")" stmt
 // declspec = "int"
-// declarator = "*"* ident
+// type-suffix=("("func-params)?
+// declarator = "*"* ident type-suffix
 // declaration=declspec(declarator("=" expr)? ("," declarator("="expr)?)*)?";"
 // compound_stmt = (stmt | declaration )*"}"
 // expr-stmt=expr? ";"
@@ -149,6 +131,8 @@ static Type *declarator(Token **rest, Token *tok, Type *ty) {
 // primary ="(" expr ")" | num | ident args?
 // args="("")"
 
+static Type *declspec(Token **rest, Token *tok);
+static Type *declarator(Token **rest, Token *tok, Type *ty);
 static Node *declaration(Token **rest, Token *tok);
 static Node *compound_stmt(Token **rest, Token *tok);
 static Node *expr_stmt(Token **rest, Token *tok);
@@ -160,6 +144,35 @@ static Node *add(Token **rest, Token *tok);
 static Node *mul(Token **rest, Token *tok);
 static Node *unary(Token **rest, Token *tok);
 static Node *primary(Token **rest, Token *tok);
+
+// type-suffix=("("func-params)?
+static Type *type_suffix(Token **rest, Token *tok, Type *ty) {
+  if (equal(tok, "(")) {
+    *rest = skip(tok->next, ")");
+    return func_type(ty);
+  }
+  *rest = tok;
+  return ty;
+}
+
+// declspec = "int"
+static Type *declspec(Token **rest, Token *tok) {
+  *rest = skip(tok, "int");
+  return ty_int;
+}
+
+// declarator = "*"* ident type-suffix
+static Type *declarator(Token **rest, Token *tok, Type *ty) {
+  while (consume(&tok, tok, "*")) {
+    ty = pointer_to(ty);
+  }
+  if (tok->kind != TK_IDENT) {
+    error_tok(tok, "expected an identifier");
+  }
+  ty = type_suffix(rest, tok->next, ty);
+  ty->name = tok;
+  return ty;
+}
 
 // declaration=declspec(declarator("=" expr)? ("," declarator("="expr)?)*)?";"
 static Node *declaration(Token **rest, Token *tok) {
@@ -430,10 +443,22 @@ static Node *primary(Token **rest, Token *tok) {
   return NULL;
 }
 
-Function *parse(Token *tok) {
+static Function *function(Token **rest, Token *tok) {
+  Type *ty = declspec(&tok, tok);
+  ty = declarator(&tok, tok, ty);
+  locals = NULL;
+  Function *fn = calloc(1, sizeof(Function));
+  fn->name = get_ident(ty->name);
   tok = skip(tok, "{");
-  Function *prog = calloc(1, sizeof(Function));
-  prog->body = compound_stmt(&tok, tok);
-  prog->locals = locals;
-  return prog;
+  fn->body = compound_stmt(rest, tok);
+  fn->locals = locals;
+  return fn;
+}
+
+Function *parse(Token *tok) {
+  Function head;
+  Function *cur = &head;
+  while (tok->kind != TK_EOF)
+    cur = cur->next = function(&tok, tok);
+  return head.next;
 }
