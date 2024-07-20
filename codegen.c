@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 static int depth = 0;
+static char *argreg[] = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
 static void gen_expr(Node *node);
 static int count() {
   static int i = 1;
@@ -61,6 +62,16 @@ static void gen_expr(Node *node) {
     gen_addr(node->lhs);
     return;
   case ND_FUNCALL:
+    int nargs = 0;
+    for (Node *arg = node->args; arg; arg = arg->next) {
+      gen_expr(arg);
+      push();
+      nargs++;
+    }
+
+    for (int i = nargs - 1; i >= 0; i--) {
+      pop(argreg[i]);
+    }
     printf("    mov $0,%%rax\n");
     printf("    call %s\n", node->funcname);
     return;

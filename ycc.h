@@ -86,6 +86,7 @@ struct Node {
   Node *body;
 
   char *funcname;
+  Node *args;
 };
 
 typedef enum {
