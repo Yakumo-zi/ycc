@@ -464,7 +464,7 @@ static Node *funcall(Token **rest, Token *tok) {
   return node;
 }
 
-// primary ="(" expr ")" | num | ident args?
+// primary ="(" expr ")" | num | ident args?  |num
 // args="("")"
 static Node *primary(Token **rest, Token *tok) {
   if (equal(tok, "(")) {
@@ -487,6 +487,11 @@ static Node *primary(Token **rest, Token *tok) {
     }
     *rest = tok->next;
     return new_var(var, tok);
+  }
+  if (equal(tok, "sizeof")) {
+    Node *node = unary(rest, tok->next);
+    add_type(node);
+    return new_num(node->ty->size, tok);
   }
   error_tok(tok, "expected an expression");
   return NULL;
