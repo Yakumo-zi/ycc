@@ -99,7 +99,7 @@ struct Node {
   Node *args;
 };
 
-typedef enum { TY_INT, TY_PTR, TY_FUNC } TypeKind;
+typedef enum { TY_INT, TY_PTR, TY_FUNC, TY_ARRAY } TypeKind;
 
 struct Type {
   TypeKind kind;
@@ -113,6 +113,9 @@ struct Type {
   Type *return_ty;
   Type *params;
   Type *next;
+
+  int size;
+  int array_len;
 };
 
 extern Type *ty_int;
@@ -120,6 +123,7 @@ bool is_integer(Type *type);
 Type *pointer_to(Type *base);
 Type *func_type(Type *return_ty);
 Type *copy_type(Type *type);
+Type *array_of(Type *base, int size);
 void add_type(Node *node);
 
 Token *tokenize(char *input);
