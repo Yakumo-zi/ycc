@@ -2,6 +2,7 @@
 #include <string.h>
 
 static Obj *locals;
+static Obj *globals;
 
 static Node *new_node(NodeKind kind, Token *tok) {
   Node *node = calloc(1, sizeof(Node));
@@ -37,20 +38,32 @@ static Obj *find_var(Token *tok) {
   }
   return NULL;
 }
-
-static Obj *new_lvar(char *name, Type *ty) {
+static Obj *new_var(char *name, Type *ty) {
   Obj *var = calloc(1, sizeof(Obj));
   var->name = name;
-  var->next = locals;
   var->ty = ty;
+  return var;
+}
+static Obj *new_lvar(char *name, Type *ty) {
+  Obj *var = new_var(name, ty);
+  var->is_local = true;
+  var->next = locals;
   locals = var;
   return var;
 }
-static Node *new_var(Obj *var, Token *tok) {
+
+static Obj *new_gvar(char *name, Type *ty) {
+  Obj *var = new_var(name, ty);
+  var->next = globals;
+  globals = var;
+  return var;
+}
+static Node *new_var_node(Obj *var, Token *tok) {
   Node *node = new_node(ND_VAR, tok);
   node->var = var;
   return node;
 }
+
 static Node *new_add(Node *lhs, Node *rhs, Token *tok) {
   add_type(lhs);
   add_type(rhs);
@@ -224,7 +237,7 @@ static Node *declaration(Token **rest, Token *tok) {
       continue;
     }
 
-    Node *lhs = new_var(var, ty->name);
+    Node *lhs = new_var_node(var, ty->name);
     Node *rhs = assign(&tok, tok->next);
     Node *node = new_binary(ND_ASSIGN, lhs, rhs, tok);
     cur = cur->next = new_unary(ND_EXPR_STMT, node, tok);
@@ -486,7 +499,7 @@ static Node *primary(Token **rest, Token *tok) {
       error_tok(tok, "undefined variable");
     }
     *rest = tok->next;
-    return new_var(var, tok);
+    return new_var_node(var, tok);
   }
   if (equal(tok, "sizeof")) {
     Node *node = unary(rest, tok->next);
@@ -504,24 +517,25 @@ static void create_param_lvars(Type *param) {
   }
 }
 
-static Function *function(Token **rest, Token *tok) {
-  Type *ty = declspec(&tok, tok);
-  ty = declarator(&tok, tok, ty);
+static Token *function(Token *tok, Type *basety) {
+  Type *ty = declarator(&tok, tok, basety);
+  Obj *fn = new_gvar(get_ident(ty->name), ty);
+  fn->is_function = true;
   locals = NULL;
-  Function *fn = calloc(1, sizeof(Function));
-  fn->name = get_ident(ty->name);
   create_param_lvars(ty->params);
   fn->params = locals;
   tok = skip(tok, "{");
-  fn->body = compound_stmt(rest, tok);
+  fn->body = compound_stmt(&tok, tok);
   fn->locals = locals;
-  return fn;
+  return tok;
 }
 
-Function *parse(Token *tok) {
-  Function head;
-  Function *cur = &head;
-  while (tok->kind != TK_EOF)
-    cur = cur->next = function(&tok, tok);
-  return head.next;
+// program = (function-definition | global-variable)*
+Obj *parse(Token *tok) {
+  globals = NULL;
+  while (tok->kind != TK_EOF) {
+    Type *basety = declspec(&tok, tok);
+    tok = function(tok, basety);
+  }
+  return globals;
 }

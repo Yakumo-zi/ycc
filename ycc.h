@@ -47,15 +47,15 @@ struct Obj {
   char *name;
   Type *ty;
   int offset; // Offset from RBP
-};
+  bool is_local;
 
-struct Function {
+  // Global variable or function
+  bool is_function;
+  Obj *params;
   Node *body;
   Obj *locals;
   int stack_size;
-  Obj *params;
-  Function *next;
-  char *name;
+  int val;
 };
 
 struct Token {
@@ -127,5 +127,5 @@ Type *array_of(Type *base, int size);
 void add_type(Node *node);
 
 Token *tokenize(char *input);
-Function *parse(Token *tok);
-void codegen(Function *node);
+Obj *parse(Token *tok);
+void codegen(Obj *node);
