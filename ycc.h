@@ -132,6 +132,22 @@ Type *copy_type(Type *type);
 Type *array_of(Type *base, int size);
 void add_type(Node *node);
 
+//
+// tokenize.c
+//
 Token *tokenize(char *input);
+
+//
+// parser.c
+//
 Obj *parse(Token *tok);
+
+//
+// codegen.c
+//
 void codegen(Obj *node);
+
+//
+// strings.c
+//
+char *format(char *fmt, ...);
