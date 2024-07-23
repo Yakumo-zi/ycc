@@ -17,6 +17,7 @@ typedef enum {
   TK_EOF,
   TK_IDENT,
   TK_KEYWORD,
+  TK_STR,
 } TokenKind;
 
 typedef enum {
@@ -56,6 +57,7 @@ struct Obj {
   Obj *locals;
   int stack_size;
   int val;
+  char *init_data;
 };
 
 struct Token {
@@ -64,6 +66,8 @@ struct Token {
   int val;
   char *loc;
   int len;
+  Type *ty;
+  char *str;
 };
 void error(char *fmt, ...);
 void error_at(char *loc, char *fmt, ...);

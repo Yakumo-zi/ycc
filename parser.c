@@ -1,4 +1,5 @@
 #include "ycc.h"
+#include <stdio.h>
 #include <string.h>
 
 static Obj *locals;
@@ -63,10 +64,26 @@ static Obj *new_gvar(char *name, Type *ty) {
   globals = var;
   return var;
 }
+
 static Node *new_var_node(Obj *var, Token *tok) {
   Node *node = new_node(ND_VAR, tok);
   node->var = var;
   return node;
+}
+
+static char *new_unique_name() {
+  static int id = 0;
+  char *buf = calloc(1, 20);
+  sprintf(buf, ".L..%d", id++);
+  return buf;
+}
+
+static Obj *new_anon_gvar(Type *ty) { return new_gvar(new_unique_name(), ty); }
+
+static Obj *new_string_literal(char *p, Type *ty) {
+  Obj *var = new_anon_gvar(ty);
+  var->init_data = p;
+  return var;
 }
 
 static Node *new_add(Node *lhs, Node *rhs, Token *tok) {
@@ -490,7 +507,7 @@ static Node *funcall(Token **rest, Token *tok) {
   return node;
 }
 
-// primary ="(" expr ")" | num | ident args?  |num
+// primary ="(" expr ")" | num | ident args?  |num | str
 // args="("")"
 static Node *primary(Token **rest, Token *tok) {
   if (equal(tok, "(")) {
@@ -511,6 +528,11 @@ static Node *primary(Token **rest, Token *tok) {
     if (!var) {
       error_tok(tok, "undefined variable");
     }
+    *rest = tok->next;
+    return new_var_node(var, tok);
+  }
+  if (tok->kind == TK_STR) {
+    Obj *var = new_string_literal(tok->str, tok->ty);
     *rest = tok->next;
     return new_var_node(var, tok);
   }

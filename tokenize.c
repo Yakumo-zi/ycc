@@ -1,4 +1,5 @@
 #include "ycc.h"
+#include <string.h>
 
 static char *current_input;
 
@@ -99,6 +100,18 @@ static void convert_keywords(Token *tok) {
     }
   }
 }
+static Token *read_string_literal(char *start) {
+  char *p = start + 1;
+  for (; *p != '"'; p++) {
+    if (*p == '\n' || *p == '\0') {
+      error_at(start, "unclosed string literal");
+    }
+  }
+  Token *tok = new_token(TK_STR, start, p + 1);
+  tok->ty = array_of(ty_char, p - start);
+  tok->str = strndup(start + 1, p - start - 1);
+  return tok;
+}
 
 Token *tokenize(char *p) {
   current_input = p;
@@ -117,13 +130,11 @@ Token *tokenize(char *p) {
       continue;
     }
 
-    int punct_len = read_punct(p);
-    if (punct_len) {
-      cur = cur->next = new_token(TK_PUNCT, p, p + punct_len);
+    if (*p == '"') {
+      cur = cur->next = read_string_literal(p);
       p += cur->len;
       continue;
     }
-
     // Identifier or Keyword
     if (is_indent1(*p)) {
       char *start = p;
@@ -131,6 +142,13 @@ Token *tokenize(char *p) {
         p++;
       } while (is_indent2(*p));
       cur = cur->next = new_token(TK_IDENT, start, p);
+      continue;
+    }
+
+    int punct_len = read_punct(p);
+    if (punct_len) {
+      cur = cur->next = new_token(TK_PUNCT, p, p + punct_len);
+      p += cur->len;
       continue;
     }
     error_at(p, "invalid token");
