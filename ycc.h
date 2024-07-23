@@ -99,7 +99,7 @@ struct Node {
   Node *args;
 };
 
-typedef enum { TY_INT, TY_PTR, TY_FUNC, TY_ARRAY } TypeKind;
+typedef enum { TY_INT, TY_PTR, TY_FUNC, TY_ARRAY, TY_CHAR } TypeKind;
 
 struct Type {
   TypeKind kind;
@@ -119,6 +119,8 @@ struct Type {
 };
 
 extern Type *ty_int;
+extern Type *ty_char;
+
 bool is_integer(Type *type);
 Type *pointer_to(Type *base);
 Type *func_type(Type *return_ty);

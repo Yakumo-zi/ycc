@@ -3,7 +3,8 @@
 #include <stdio.h>
 
 static int depth = 0;
-static char *argreg[] = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
+static char *argreg64[] = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
+static char *argreg8[] = {"%dil", "%sil", "%dl", "%cl", "%r8b", "r9b"};
 static Obj *current_fn;
 static void gen_expr(Node *node);
 static int count() {
@@ -44,12 +45,20 @@ static void load(Type *ty) {
   if (ty->kind == TY_ARRAY) {
     return;
   }
-  printf("    mov (%%rax),%%rax\n");
+  if (ty->size == 1) {
+    printf("    movsbq (%%rax),%%rax\n");
+  } else {
+    printf("    mov (%%rax),%%rax\n");
+  }
 }
 
-static void store() {
+static void store(Type *ty) {
   pop("%rdi");
-  printf("    mov %%rax,(%%rdi)\n");
+  if (ty->size == 1) {
+    printf("    mov %%al,(%%rdi)\n");
+  } else {
+    printf("    mov %%rax,(%%rdi)\n");
+  }
 }
 static void gen_expr(Node *node) {
   switch (node->kind) {
@@ -68,7 +77,7 @@ static void gen_expr(Node *node) {
     gen_addr(node->lhs);
     push();
     gen_expr(node->rhs);
-    store();
+    store(node->ty);
     printf("    mov %%rax,(%%rdi)\n");
     return;
   case ND_DEREF:
@@ -87,7 +96,7 @@ static void gen_expr(Node *node) {
     }
 
     for (int i = nargs - 1; i >= 0; i--) {
-      pop(argreg[i]);
+      pop(argreg64[i]);
     }
     printf("    mov $0,%%rax\n");
     printf("    call %s\n", node->funcname);
@@ -218,8 +227,13 @@ static void emit_text(Obj *prog) {
     printf("    sub $%d, %%rsp\n", fn->stack_size);
     // Save passed-by-register arguments to the stack
     int i = 0;
-    for (Obj *var = fn->params; var; var = var->next)
-      printf("    mov %s, %d(%%rbp)\n", argreg[i++], var->offset);
+    for (Obj *var = fn->params; var; var = var->next) {
+      if (var->ty->size == 1) {
+        printf("    mov %s,%d(%%rbp)\n", argreg8[i++], var->offset);
+      } else {
+        printf("    mov %s,%d(%%rbp)\n", argreg64[i++], var->offset);
+      }
+    }
     // Emit code
     gen_stmt(fn->body);
     assert(depth == 0);

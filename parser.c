@@ -133,6 +133,10 @@ static int get_number(Token *tok) {
   return tok->val;
 }
 
+static bool is_typename(Token *tok) {
+  return equal(tok, "char") || equal(tok, "int");
+}
+
 // stmt="return" expr ";"
 //      | expr-stmt
 //      | {" compound_stmt
@@ -207,8 +211,12 @@ static Type *type_suffix(Token **rest, Token *tok, Type *ty) {
   return ty;
 }
 
-// declspec = "int"
+// declspec = "int" |"char"
 static Type *declspec(Token **rest, Token *tok) {
+  if (equal(tok, "char")) {
+    *rest = tok->next;
+    return ty_char;
+  }
   *rest = skip(tok, "int");
   return ty_int;
 }
@@ -313,7 +321,7 @@ static Node *compound_stmt(Token **rest, Token *tok) {
   Node head = {};
   Node *cur = &head;
   while (!equal(tok, "}")) {
-    if (equal(tok, "int")) {
+    if (is_typename(tok)) {
       cur = cur->next = declaration(&tok, tok);
     } else {
       cur = cur->next = stmt(&tok, tok);

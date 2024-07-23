@@ -1,7 +1,10 @@
 #include "ycc.h"
 Type *ty_int = &(Type){TY_INT, .size = 8};
+Type *ty_char = &(Type){TY_CHAR, .size = 1};
 
-bool is_integer(Type *type) { return type->kind == TY_INT; }
+bool is_integer(Type *type) {
+  return type->kind == TY_CHAR || type->kind == TY_INT;
+}
 
 Type *pointer_to(Type *base) {
   Type *ty = calloc(1, sizeof(Type));
